@@ -1,0 +1,10 @@
+# Binaries
+*.exe
+*.out
+/bin/
+
+# Module download cache
+vendor/
+
+# Environment files
+.env
