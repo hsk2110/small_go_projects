@@ -2,9 +2,13 @@ package main
 
 import (
 	"context"
+	"crypto/rand"
 	"encoding/json"
 	"fmt"
 	"log"
+	"log/slog"
+	"math"
+	"math/big"
 	"net/http"
 	"os"
 	"os/signal"
@@ -12,6 +16,8 @@ import (
 	"strconv"
 	"syscall"
 	"time"
+
+	"github.com/jackc/pgx/v5"
 )
 
 // the todo struct consists of id, title, whether it's finished and description
@@ -22,13 +28,17 @@ type Todo struct {
 	Description string `json:"description"`
 }
 
+type App struct {
+	db *pgx.Conn
+}
+
 var todos = []Todo{}
 var id int
 
 // this handler is responsible for the GET and POST methods.
 // if it's GET then we display all the todos
 // if it's POST then we append the new todo and display them all
-func handleTodos(w http.ResponseWriter, r *http.Request) {
+func (a *App) handleTodos(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:
 		w.Header().Set("Content-Type", "application/json")
@@ -59,7 +69,7 @@ func handleTodos(w http.ResponseWriter, r *http.Request) {
 }
 
 // for DELETE requests
-func handleTodosDelete(w http.ResponseWriter, r *http.Request) {
+func (a *App) handleTodosDelete(w http.ResponseWriter, r *http.Request) {
 	requestedID, err := strconv.Atoi(r.PathValue("id"))
 
 	if err != nil {
@@ -81,7 +91,7 @@ func handleTodosDelete(w http.ResponseWriter, r *http.Request) {
 
 }
 
-func handleTodosUpdate(w http.ResponseWriter, r *http.Request) {
+func (a *App) handleTodosUpdate(w http.ResponseWriter, r *http.Request) {
 
 	requestedID, err := strconv.Atoi(r.PathValue("id"))
 
@@ -113,7 +123,7 @@ func handleTodosUpdate(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func handleHealthCheck(w http.ResponseWriter, r *http.Request) {
+func (a *App) handleHealthCheck(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
@@ -121,32 +131,49 @@ func handleHealthCheck(w http.ResponseWriter, r *http.Request) {
 
 func myMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		fmt.Println("Method: ", r.Method, "\nPath: ", r.URL.Path)
+		requestID, err := rand.Int(rand.Reader, big.NewInt(math.MaxInt))
+		if err != nil {
+			log.Fatal(err)
+		}
+
 		start := time.Now()
 		next.ServeHTTP(w, r)
 		duration := time.Since(start)
-		fmt.Println("Duration: ", duration)
+		slog.Info("request info: ", "method", r.Method, "path", r.URL.Path, "requestID", requestID, "duration", duration)
 	})
 }
 
 func main() {
 
 	mux := http.NewServeMux()
-
+	dbURL := os.Getenv("DATABASE_URL")
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8080"
 	}
+	if dbURL == "" {
+		dbURL = "postgres://postgres:password@localhost:5432/todos"
+	}
 	port = fmt.Sprintf(":%s", port)
 
-	mux.HandleFunc("/todo", handleTodos)
-	mux.HandleFunc("DELETE /todo/{id}", handleTodosDelete)
-	mux.HandleFunc("PUT /todo/{id}", handleTodosUpdate)
-	mux.HandleFunc("GET /health", handleHealthCheck)
+	conn, err := pgx.Connect(context.Background(), dbURL)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer conn.Close(context.Background())
+
+	slog.Info("Database connection success!")
+
+	app := App{conn}
+
+	mux.HandleFunc("/todo", app.handleTodos)
+	mux.HandleFunc("DELETE /todo/{id}", app.handleTodosDelete)
+	mux.HandleFunc("PUT /todo/{id}", app.handleTodosUpdate)
+	mux.HandleFunc("GET /health", app.handleHealthCheck)
 
 	s := &http.Server{
 		Addr:    port,
-		Handler: mux,
+		Handler: myMiddleware(mux),
 	}
 
 	ctx, stop := signal.NotifyContext(
