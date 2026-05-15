@@ -1,13 +1,20 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
+	"os"
+	"os/signal"
 	"slices"
 	"strconv"
+	"syscall"
+	"time"
 )
 
+// the todo struct consists of id, title, whether it's finished and description
 type Todo struct {
 	ID          int    `json:"id"`
 	Title       string `json:"title"`
@@ -18,6 +25,9 @@ type Todo struct {
 var todos = []Todo{}
 var id int
 
+// this handler is responsible for the GET and POST methods.
+// if it's GET then we display all the todos
+// if it's POST then we append the new todo and display them all
 func handleTodos(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:
@@ -48,18 +58,19 @@ func handleTodos(w http.ResponseWriter, r *http.Request) {
 
 }
 
+// for DELETE requests
 func handleTodosDelete(w http.ResponseWriter, r *http.Request) {
 	requestedID, err := strconv.Atoi(r.PathValue("id"))
 
 	if err != nil {
-		http.Error(w, "invalid id", http.StatusBadRequest)
+		http.Error(w, "bad request", http.StatusBadRequest)
 		return
 	}
 
 	index := slices.IndexFunc(todos, func(t Todo) bool {
 		return t.ID == requestedID
 	})
-
+	// if the index doesnt exist
 	if index < 0 {
 		http.Error(w, "not found", http.StatusNotFound)
 		return
@@ -100,13 +111,49 @@ func handleTodosUpdate(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		json.NewEncoder(w).Encode(todo)
 	}
+}
 
+func myMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Println("Method: ", r.Method, "\nPath: ", r.URL.Path)
+		start := time.Now()
+		next.ServeHTTP(w, r)
+		duration := time.Since(start)
+		fmt.Println("Duration: ", duration)
+	})
 }
 
 func main() {
-	http.HandleFunc("/todo", handleTodos)
-	http.HandleFunc("DELETE /todo/{id}", handleTodosDelete)
-	http.HandleFunc("PUT /todo/{id}", handleTodosUpdate)
-	log.Fatal(http.ListenAndServe(":8888", nil))
 
+	mux := http.NewServeMux()
+
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+	port = fmt.Sprintf(":%s", port)
+
+	mux.HandleFunc("/todo", handleTodos)
+	mux.HandleFunc("DELETE /todo/{id}", handleTodosDelete)
+	mux.HandleFunc("PUT /todo/{id}", handleTodosUpdate)
+
+	s := &http.Server{
+		Addr:    port,
+		Handler: mux,
+	}
+
+	ctx, stop := signal.NotifyContext(
+		context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+
+	go func() {
+		if err := s.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatal(err)
+		}
+	}()
+	<-ctx.Done()
+
+	ctx, stop = context.WithTimeout(ctx, 5*time.Second)
+	defer stop()
+	s.Shutdown(ctx)
 }
