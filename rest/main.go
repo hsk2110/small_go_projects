@@ -113,6 +113,12 @@ func handleTodosUpdate(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func handleHealthCheck(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+}
+
 func myMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		fmt.Println("Method: ", r.Method, "\nPath: ", r.URL.Path)
@@ -136,6 +142,7 @@ func main() {
 	mux.HandleFunc("/todo", handleTodos)
 	mux.HandleFunc("DELETE /todo/{id}", handleTodosDelete)
 	mux.HandleFunc("PUT /todo/{id}", handleTodosUpdate)
+	mux.HandleFunc("GET /health", handleHealthCheck)
 
 	s := &http.Server{
 		Addr:    port,
