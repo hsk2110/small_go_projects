@@ -1,20 +1,35 @@
 package main
 
 import (
+	"context"
+	"log"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
+
+	"github.com/jackc/pgx/v5"
 )
 
+var testApp App
+
+func TestMain(m *testing.M) {
+	conn, err := pgx.Connect(context.Background(), "postgres://postgres:password@localhost:5432/todos")
+	if err != nil {
+		log.Fatal("could not connect to test database:", err)
+	}
+	testApp = App{db: conn}
+	os.Exit(m.Run())
+}
+
 func TestHandleTodos(t *testing.T) {
-	todos = []Todo{}
+	testApp.db.Exec(context.Background(), "DELETE FROM todos")
 	w := httptest.NewRecorder()
-	app := App{db: nil}
 
 	r := httptest.NewRequest("GET", "/todo", nil)
 
-	app.handleTodos(w, r)
+	testApp.handleTodos(w, r)
 
 	if w.Code != 200 {
 		t.Errorf("Got: %v, want: %v", w.Code, 200)
@@ -26,15 +41,13 @@ func TestHandleTodos(t *testing.T) {
 }
 
 func TestHandleTodosPost(t *testing.T) {
-	todos = []Todo{}
+	testApp.db.Exec(context.Background(), "DELETE FROM todos")
 	body := strings.NewReader(`{"title":"Buy milk"}`)
-	app := App{db: nil}
-
 	w := httptest.NewRecorder()
 
 	r := httptest.NewRequest("POST", "/todo", body)
 
-	app.handleTodos(w, r)
+	testApp.handleTodos(w, r)
 
 	if w.Code != 201 {
 		t.Errorf("Got: %v, want: %v", w.Code, 201)
@@ -46,22 +59,21 @@ func TestHandleTodosPost(t *testing.T) {
 }
 
 func TestHandleTodosDelete(t *testing.T) {
-	todos = []Todo{}
+	testApp.db.Exec(context.Background(), "DELETE FROM todos")
 	body := strings.NewReader(`{"title":"Buy milk"}`)
-	app := App{db: nil}
 
 	w := httptest.NewRecorder()
 
 	r := httptest.NewRequest("POST", "/todo", body)
 
-	app.handleTodos(w, r)
+	testApp.handleTodos(w, r)
 
 	w = httptest.NewRecorder()
 
 	r = httptest.NewRequest("DELETE", "/todo/0", nil)
 
 	mux := http.NewServeMux()
-	mux.HandleFunc("DELETE /todo/{id}", app.handleTodosDelete)
+	mux.HandleFunc("DELETE /todo/{id}", testApp.handleTodosDelete)
 	mux.ServeHTTP(w, r)
 
 	if w.Code != 204 {
@@ -70,15 +82,14 @@ func TestHandleTodosDelete(t *testing.T) {
 }
 
 func TestHandleTodosUpdate(t *testing.T) {
-	todos = []Todo{}
+	testApp.db.Exec(context.Background(), "DELETE FROM todos")
 	body := strings.NewReader(`{"title":"Buy milk"}`)
-	app := App{db: nil}
 
 	w := httptest.NewRecorder()
 
 	r := httptest.NewRequest("POST", "/todo", body)
 
-	app.handleTodos(w, r)
+	testApp.handleTodos(w, r)
 
 	w = httptest.NewRecorder()
 
@@ -87,7 +98,7 @@ func TestHandleTodosUpdate(t *testing.T) {
 	r = httptest.NewRequest("PUT", "/todo/0", body)
 
 	mux := http.NewServeMux()
-	mux.HandleFunc("PUT /todo/{id}", app.handleTodosUpdate)
+	mux.HandleFunc("PUT /todo/{id}", testApp.handleTodosUpdate)
 	mux.ServeHTTP(w, r)
 
 	if w.Code != 200 {
