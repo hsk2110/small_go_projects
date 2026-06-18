@@ -71,7 +71,7 @@ func TestHandleTodosDelete(t *testing.T) {
 	testApp.handleTodos(w, r)
 
 	var todo Todo
-	json.NewDecoder(r.Body).Decode(&todo)
+	json.NewDecoder(w.Body).Decode(&todo)
 
 	w = httptest.NewRecorder()
 
@@ -97,7 +97,7 @@ func TestHandleTodosUpdate(t *testing.T) {
 	testApp.handleTodos(w, r)
 
 	var todo Todo
-	json.NewDecoder(r.Body).Decode(&todo)
+	json.NewDecoder(w.Body).Decode(&todo)
 
 	w = httptest.NewRecorder()
 
