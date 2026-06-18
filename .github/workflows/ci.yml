@@ -26,6 +26,10 @@ jobs:
     steps:
       - name: checkout repo
         uses: actions/checkout@v4
+      - name: create table
+        run: psql postgres://postgres:password@localhost:5432/todos -c "CREATE TABLE todos (id SERIAL PRIMARY KEY, title TEXT NOT NULL, finished BOOLEAN DEFAULT FALSE, description TEXT);"
+      - name: install psql
+        run: sudo apt-get install -y postgresql-client
       - name: use go
         uses: actions/setup-go@v5
         with:
