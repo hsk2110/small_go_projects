@@ -47,7 +47,6 @@ func TestHandleTodosPost(t *testing.T) {
 
 func TestHandleTodosDelete(t *testing.T) {
 	todos = []Todo{}
-	id = 0
 	body := strings.NewReader(`{"title":"Buy milk"}`)
 	app := App{db: nil}
 
@@ -72,7 +71,6 @@ func TestHandleTodosDelete(t *testing.T) {
 
 func TestHandleTodosUpdate(t *testing.T) {
 	todos = []Todo{}
-	id = 0
 	body := strings.NewReader(`{"title":"Buy milk"}`)
 	app := App{db: nil}
 
