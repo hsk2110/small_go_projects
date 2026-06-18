@@ -73,7 +73,7 @@ func TestHandleTodosDelete(t *testing.T) {
 	r = httptest.NewRequest("DELETE", "/todo/1", nil)
 
 	mux := http.NewServeMux()
-	mux.HandleFunc("DELETE /todo/1", testApp.handleTodosDelete)
+	mux.HandleFunc("DELETE /todo/{id}", testApp.handleTodosDelete)
 	mux.ServeHTTP(w, r)
 
 	if w.Code != 204 {
@@ -98,7 +98,7 @@ func TestHandleTodosUpdate(t *testing.T) {
 	r = httptest.NewRequest("PUT", "/todo/1", body)
 
 	mux := http.NewServeMux()
-	mux.HandleFunc("PUT /todo/1", testApp.handleTodosUpdate)
+	mux.HandleFunc("PUT /todo/{id}", testApp.handleTodosUpdate)
 	mux.ServeHTTP(w, r)
 
 	if w.Code != 200 {
