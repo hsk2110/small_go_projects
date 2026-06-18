@@ -1,4 +1,3 @@
-yaml
 name: REST API CI
 on:
   push:
