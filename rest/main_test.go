@@ -70,10 +70,10 @@ func TestHandleTodosDelete(t *testing.T) {
 
 	w = httptest.NewRecorder()
 
-	r = httptest.NewRequest("DELETE", "/todo/0", nil)
+	r = httptest.NewRequest("DELETE", "/todo/1", nil)
 
 	mux := http.NewServeMux()
-	mux.HandleFunc("DELETE /todo/{id}", testApp.handleTodosDelete)
+	mux.HandleFunc("DELETE /todo/1", testApp.handleTodosDelete)
 	mux.ServeHTTP(w, r)
 
 	if w.Code != 204 {
@@ -95,10 +95,10 @@ func TestHandleTodosUpdate(t *testing.T) {
 
 	body = strings.NewReader(`{"title":"Buy cheese"}`)
 
-	r = httptest.NewRequest("PUT", "/todo/0", body)
+	r = httptest.NewRequest("PUT", "/todo/1", body)
 
 	mux := http.NewServeMux()
-	mux.HandleFunc("PUT /todo/{id}", testApp.handleTodosUpdate)
+	mux.HandleFunc("PUT /todo/1", testApp.handleTodosUpdate)
 	mux.ServeHTTP(w, r)
 
 	if w.Code != 200 {
