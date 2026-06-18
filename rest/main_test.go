@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"net/http/httptest"
@@ -68,9 +70,12 @@ func TestHandleTodosDelete(t *testing.T) {
 
 	testApp.handleTodos(w, r)
 
+	var todo Todo
+	json.NewDecoder(r.Body).Decode(&todo)
+
 	w = httptest.NewRecorder()
 
-	r = httptest.NewRequest("DELETE", "/todo/1", nil)
+	r = httptest.NewRequest("DELETE", fmt.Sprintf("/todo/%d", todo.ID), nil)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("DELETE /todo/{id}", testApp.handleTodosDelete)
@@ -91,11 +96,14 @@ func TestHandleTodosUpdate(t *testing.T) {
 
 	testApp.handleTodos(w, r)
 
+	var todo Todo
+	json.NewDecoder(r.Body).Decode(&todo)
+
 	w = httptest.NewRecorder()
 
 	body = strings.NewReader(`{"title":"Buy cheese"}`)
 
-	r = httptest.NewRequest("PUT", "/todo/1", body)
+	r = httptest.NewRequest("PUT", fmt.Sprintf("/todo/%d", todo.ID), body)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("PUT /todo/{id}", testApp.handleTodosUpdate)
